@@ -12,6 +12,13 @@
   h2 { font-size: 1.25rem; margin-top: 2rem; color: var(--accent); }
   a { color: var(--accent); }
   li { margin-bottom: 6px; }
+  form { display: grid; gap: 10px; max-width: 420px; margin-top: 12px; }
+  input { font: inherit; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3350; background: #121829; color: var(--text); }
+  button { font: inherit; padding: 10px 14px; border-radius: 8px; border: 0; background: #ff5d6c; color: #1a0508; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: 0.5; cursor: default; }
+  #result { min-height: 1.6em; }
+  .ok { color: #6fe0a0; }
+  .bad { color: #ff8a95; }
 </style>
 </head>
 <body>
@@ -19,9 +26,19 @@
 <h1>Delete your Clash of the Cosmos account</h1>
 <p>Clash of the Cosmos is made by SUTBeast. You can ask us to delete your online account and all of its data at any time. You don't need to have the game installed.</p>
 
-<h2>How to ask</h2>
+<h2>Delete it now</h2>
+<p>In the game: <b>Settings</b>, then <b>Delete account</b>. Or here: sign in with the email address and password you use in the game, type DELETE, and the account is deleted straight away. This can't be undone.</p>
+<form id="del">
+  <input id="email" type="email" placeholder="Email" autocomplete="username" required>
+  <input id="password" type="password" placeholder="Password" autocomplete="current-password" required>
+  <input id="confirm" type="text" placeholder="Type DELETE to confirm" autocomplete="off" required>
+  <button id="go" type="submit">Delete my account for good</button>
+  <div id="result" role="status"></div>
+</form>
+
+<h2>Or ask us by email</h2>
 <ol>
-  <li>Send an email to <a href="mailto:clashofthecosmos1@gmail.com?subject=Delete%20my%20Cosmo%20account">clashofthecosmos1@gmail.com</a> with the subject "Delete my Clash of the Cosmos account".</li>
+  <li>Send an email to <a href="mailto:clashofthecosmos1@gmail.com?subject=Delete%20my%20Clash%20of%20the%20Cosmos%20account">clashofthecosmos1@gmail.com</a> with the subject "Delete my Clash of the Cosmos account".</li>
   <li>Send it from the email address you use to sign in to Clash of the Cosmos, so we know the account is yours.</li>
   <li>Include your Clash of the Cosmos username.</li>
 </ol>
@@ -33,6 +50,7 @@
   <li>Your username and profile, including trophies and star level.</li>
   <li>Your saved bases and game progress.</li>
   <li>Your friends list and your battle history.</li>
+  <li>Your Shooting Stars, daily rewards and achievements.</li>
 </ul>
 <p>Short-term server logs, which may include your IP address, are deleted automatically by our hosting provider. Any purchases can't be restored after the account is deleted.</p>
 
@@ -41,5 +59,51 @@
 
 <p>Read our <a href="privacy.html">privacy policy</a>.</p>
 </main>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// The game's own server and its publishable key (made to be public; what it
+// can do is decided by the server's rules). The account is deleted by the
+// server's delete-account function, which only ever deletes whoever is
+// signed in.
+const SERVER = "https://dtvyjfeubjyixnthojqa.supabase.co";
+const KEY = "sb_publishable_joQC5q5FBH5guAMHbzplPw_-fu1gNMe";
+const client = supabase.createClient(SERVER, KEY, { auth: { persistSession: false } });
+const form = document.getElementById("del");
+const result = document.getElementById("result");
+const go = document.getElementById("go");
+function say(text, ok) {
+  result.textContent = text;
+  result.className = ok ? "ok" : "bad";
+}
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  if (document.getElementById("confirm").value.trim() !== "DELETE") {
+    say("Type DELETE to confirm.", false);
+    return;
+  }
+  go.disabled = true;
+  say("Deleting...", true);
+  const signIn = await client.auth.signInWithPassword({
+    email: document.getElementById("email").value.trim(),
+    password: document.getElementById("password").value,
+  });
+  if (signIn.error || !signIn.data.session) {
+    say("Email or password is incorrect.", false);
+    go.disabled = false;
+    return;
+  }
+  const res = await fetch(SERVER + "/functions/v1/delete-account", {
+    method: "POST",
+    headers: { "Authorization": "Bearer " + signIn.data.session.access_token, "apikey": KEY },
+  });
+  if (res.ok) {
+    say("Your account and everything in it has been deleted.", true);
+    form.reset();
+  } else {
+    say("It couldn't be deleted just now. Try again later, or email us (below).", false);
+    go.disabled = false;
+  }
+});
+</script>
 </body>
 </html>
